@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Face Restorer Pro - Tencent ARC</title>
+    <title>AI Face Restorer Ultra - Tencent ARC</title>
     <style>
         :root { --accent: #00f2ff; --bg: #0d1117; --card: #161b22; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: white; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -34,17 +34,17 @@
 <div class="container">
     <header>
         <h1>AI Face Restorer</h1>
-        <p>Restauración Facial HD (Tencent ARC)</p>
+        <p>Modelo Oficial: Tencent ARC GFPGAN</p>
     </header>
 
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-        <p id="statusText">Toca para subir foto borrosa</p>
+        <p id="statusText">Toca para seleccionar tu foto</p>
         <input type="file" id="fileInput" accept="image/*" style="display:none">
     </div>
 
-    <button id="btnAi" class="btn-ai" disabled>RECONSTRUIR CARA AHORA</button>
+    <button id="btnAi" class="btn-ai" disabled>RECONSTRUIR EN HD</button>
     
-    <div id="loader">⚡ Procesando... (Puede tardar 30 segundos)</div>
+    <div id="loader">⚡ Procesando... Mantén esta ventana abierta.</div>
     <div id="errorBox"></div>
 
     <div id="results" class="results" style="display:none;">
@@ -55,7 +55,7 @@
         <div class="canvas-card">
             <h3>Resultado IA</h3>
             <img id="imgRes">
-            <button id="btnDown" style="margin-top:15px; background: #22c55e; border:none; color:white; padding:12px 20px; border-radius:8px; cursor:pointer; font-weight:bold; width: 100%;">DESCARGAR HD</button>
+            <button id="btnDown" style="margin-top:15px; background: #22c55e; border:none; color:white; padding:12px 20px; border-radius:8px; cursor:pointer; font-weight:bold; width: 100%;">DESCARGAR RESULTADO</button>
         </div>
     </div>
 </div>
@@ -70,16 +70,14 @@
     const imgRes = document.getElementById('imgRes');
     const loader = document.getElementById('loader');
     const errorBox = document.getElementById('errorBox');
-    const resultsDiv = document.getElementById('results');
 
     fileInput.onchange = (e) => {
         const file = e.target.files[0];
         if (file) {
             imgOri.src = URL.createObjectURL(file);
-            resultsDiv.style.display = 'grid';
+            document.getElementById('results').style.display = 'grid';
             btnAi.disabled = false;
             errorBox.style.display = 'none';
-            document.getElementById('statusText').innerText = "Imagen: " + file.name;
         }
     };
 
@@ -89,6 +87,10 @@
         errorBox.style.display = 'none';
         imgRes.src = ""; 
 
+        // Controlador para evitar que el navegador corte la conexión antes de tiempo
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos de espera
+
         try {
             const response = await fetch(API_URL, {
                 headers: { 
@@ -97,29 +99,35 @@
                 },
                 method: "POST",
                 body: fileInput.files[0],
-                cache: "no-cache"
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 const err = await response.json();
                 if (err.error && err.error.includes("loading")) {
-                    throw new Error("El servidor de IA está despertando. Espera 15 segundos y vuelve a pulsar el botón.");
+                    throw new Error("La IA se está preparando (servidor frío). Espera 20 segundos y vuelve a pulsar el botón.");
                 }
-                throw new Error(err.error || "Error en el servidor");
+                throw new Error(err.error || "El servidor está saturado. Intenta de nuevo.");
             }
 
             const blob = await response.blob();
-            if (blob.type.includes("image")) {
+            if (blob.size > 0 && blob.type.startsWith('image/')) {
                 imgRes.src = URL.createObjectURL(blob);
             } else {
-                throw new Error("El servidor no devolvió una imagen. Reintenta.");
+                throw new Error("Error en la respuesta del servidor. Intenta otra vez.");
             }
 
         } catch (err) {
+            if (err.name === 'AbortError') {
+                errorBox.innerText = "Error: El servidor tardó demasiado. Reintenta ahora, ya debería estar listo.";
+            } else {
+                errorBox.innerText = err.message === "Failed to fetch" 
+                    ? "Error de Red: Pulsa el botón otra vez para reintentar." 
+                    : err.message;
+            }
             errorBox.style.display = 'block';
-            errorBox.innerText = err.message === "Failed to fetch" 
-                ? "Error: Conexión lenta o interrumpida. Vuelve a intentarlo." 
-                : err.message;
         } finally {
             btnAi.disabled = false;
             loader.style.display = 'none';
@@ -130,7 +138,7 @@
         if (!imgRes.src) return;
         const a = document.createElement('a');
         a.href = imgRes.src;
-        a.download = "foto_restaurada.png";
+        a.download = "restaurada_hd.png";
         a.click();
     };
 </script>
