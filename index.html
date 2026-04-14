@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Face Restorer - Direct Fix</title>
+    <title>AI Face Restorer - CodeFormer Edition</title>
     <style>
         :root { --accent: #00f2ff; --bg: #0d1117; --card: #161b22; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -23,22 +23,22 @@
 <div class="container">
     <header>
         <h1>AI Face Restorer</h1>
-        <p>Conexión Directa Hugging Face</p>
+        <p>Potenciado por CodeFormer IA</p>
     </header>
 
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-        <p id="statusText">Toca para subir la captura</p>
+        <p id="statusText">Toca para cargar la captura</p>
         <input type="file" id="fileInput" accept="image/*" style="display:none">
     </div>
 
     <button id="btnAi" class="btn-ai" disabled>RECONSTRUIR CARA</button>
     
-    <div id="loader">⚡ Procesando... Espera un momento.</div>
+    <div id="loader">⚡ Despertando a la IA... espera un momento.</div>
     <div id="errorBox"></div>
 
     <div id="results" class="results" style="display:none;">
         <div class="card">
-            <h3>Captura Original</h3>
+            <h3>Original</h3>
             <img id="imgOri">
         </div>
         <div class="card">
@@ -50,9 +50,9 @@
 </div>
 
 <script>
-    // Tu Token y la API oficial
     const HF_TOKEN = "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"; 
-    const API_URL = "https://api-inference.huggingface.co/models/tencentarc/GFPGAN";
+    // Cambiamos a CodeFormer, un modelo más ligero y rápido para móviles
+    const API_URL = "https://api-inference.huggingface.co/models/sczhou/CodeFormer";
 
     const fileInput = document.getElementById('fileInput');
     const btnAi = document.getElementById('btnAi');
@@ -80,42 +80,46 @@
         imgRes.src = ""; 
 
         try {
-            // Leemos el archivo como datos binarios directos
+            const arrayBuffer = await file.arrayBuffer();
+
+            // Realizamos la petición
             const response = await fetch(API_URL, {
-                headers: { 
-                    "Authorization": `Bearer ${HF_TOKEN}`,
-                    "Content-Type": "application/octet-stream"
-                },
+                headers: { "Authorization": `Bearer ${HF_TOKEN}` },
                 method: "POST",
-                body: await file.arrayBuffer()
+                body: arrayBuffer
             });
 
             if (!response.ok) {
                 const data = await response.json();
                 if (data.error && data.error.includes("loading")) {
-                    throw new Error("La IA se está iniciando. Pulsa el botón otra vez en 10 segundos.");
+                    // Si está cargando, esperamos 5 segundos y reintentamos automáticamente una vez
+                    loader.innerText = "⏳ El servidor se está iniciando, reintentando automáticamente...";
+                    await new Promise(res => setTimeout(res, 5000));
+                    return btnAi.onclick(); 
                 }
-                throw new Error(data.error || "Error en el servidor.");
+                throw new Error(data.error || "Error en la IA.");
             }
 
             const blob = await response.blob();
             imgRes.src = URL.createObjectURL(blob);
+            loader.style.display = 'none';
 
         } catch (err) {
             errorBox.style.display = 'block';
             errorBox.innerText = (err.message === "Failed to fetch") 
-                ? "Error de conexión. Prueba darle al botón de nuevo." 
+                ? "Error de conexión: Reintenta pulsando el botón otra vez." 
                 : err.message;
         } finally {
             btnAi.disabled = false;
-            loader.style.display = 'none';
+            loader.innerText = "⚡ Procesando... Espera un momento.";
+            if (!imgRes.src) loader.style.display = 'none';
         }
     };
 
     document.getElementById('btnDown').onclick = () => {
         const a = document.createElement('a');
         a.href = imgRes.src;
-        a.download = "restaurada.png";
+        a.download = "cara_restaurada.png";
         a.click();
     };
 </script>
