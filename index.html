@@ -3,30 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Face Restorer Ultra - Tencent ARC</title>
+    <title>AI Face Restorer - Conexión Forzada</title>
     <style>
         :root { --accent: #00f2ff; --bg: #0d1117; --card: #161b22; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: white; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .container { max-width: 600px; width: 100%; text-align: center; }
-        header { margin-bottom: 25px; }
-        h1 { color: var(--accent); margin: 0; font-size: 1.8rem; text-transform: uppercase; }
-        
-        .upload-box { background: var(--card); border: 2px dashed var(--accent); padding: 40px; border-radius: 20px; cursor: pointer; margin-bottom: 25px; transition: 0.3s; }
-        .upload-box:hover { background: rgba(0, 242, 255, 0.05); }
-        
-        .btn-ai { width: 100%; padding: 18px; border: none; border-radius: 12px; background: linear-gradient(90deg, #00f2ff, #0072ff); color: white; font-weight: bold; font-size: 1.2rem; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(0, 242, 255, 0.2); }
-        .btn-ai:hover { transform: translateY(-2px); filter: brightness(1.1); }
-        .btn-ai:disabled { background: #4b5563; opacity: 0.7; cursor: not-allowed; transform: none; }
-
+        .upload-box { background: var(--card); border: 2px dashed var(--accent); padding: 30px; border-radius: 20px; cursor: pointer; margin-bottom: 20px; }
+        .btn-ai { width: 100%; padding: 18px; border: none; border-radius: 12px; background: linear-gradient(90deg, #00f2ff, #0072ff); color: white; font-weight: bold; font-size: 1.2rem; cursor: pointer; }
+        .btn-ai:disabled { background: #4b5563; opacity: 0.7; }
         .results { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 25px; }
         .canvas-card { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid #30363d; }
-        h3 { color: #8b949e; font-size: 0.9rem; margin-bottom: 10px; text-transform: uppercase; }
         img { width: 100%; border-radius: 10px; background: #000; min-height: 200px; object-fit: contain; }
-
-        #loader { display: none; margin: 20px 0; color: var(--accent); font-weight: bold; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        
-        #errorBox { display: none; background: rgba(255, 0, 0, 0.1); color: #ff6b6b; border: 1px solid #ff6b6b; padding: 15px; border-radius: 10px; margin-top: 20px; font-size: 0.9rem; text-align: left; }
+        #loader { display: none; margin: 20px 0; color: var(--accent); font-weight: bold; }
+        #errorBox { display: none; background: rgba(255, 0, 0, 0.1); color: #ff6b6b; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #ff6b6b; }
     </style>
 </head>
 <body>
@@ -34,17 +23,17 @@
 <div class="container">
     <header>
         <h1>AI Face Restorer</h1>
-        <p>Modelo Oficial: Tencent ARC GFPGAN</p>
+        <p>Modo de Conexión Persistente</p>
     </header>
 
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-        <p id="statusText">Toca para seleccionar tu foto</p>
+        <p id="statusText">Toca para subir tu foto</p>
         <input type="file" id="fileInput" accept="image/*" style="display:none">
     </div>
 
-    <button id="btnAi" class="btn-ai" disabled>RECONSTRUIR EN HD</button>
+    <button id="btnAi" class="btn-ai" disabled>RECONSTRUIR CARA</button>
     
-    <div id="loader">⚡ Procesando... Mantén esta ventana abierta.</div>
+    <div id="loader">⚙️ Procesando en el servidor... Por favor no cierres la página.</div>
     <div id="errorBox"></div>
 
     <div id="results" class="results" style="display:none;">
@@ -53,9 +42,9 @@
             <img id="imgOri">
         </div>
         <div class="canvas-card">
-            <h3>Resultado IA</h3>
+            <h3>Resultado HD</h3>
             <img id="imgRes">
-            <button id="btnDown" style="margin-top:15px; background: #22c55e; border:none; color:white; padding:12px 20px; border-radius:8px; cursor:pointer; font-weight:bold; width: 100%;">DESCARGAR RESULTADO</button>
+            <button id="btnDown" style="margin-top:15px; background: #22c55e; border:none; color:white; padding:12px 20px; border-radius:8px; cursor:pointer; font-weight:bold; width: 100%;">GUARDAR IMAGEN</button>
         </div>
     </div>
 </div>
@@ -72,9 +61,8 @@
     const errorBox = document.getElementById('errorBox');
 
     fileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            imgOri.src = URL.createObjectURL(file);
+        if (e.target.files[0]) {
+            imgOri.src = URL.createObjectURL(e.target.files[0]);
             document.getElementById('results').style.display = 'grid';
             btnAi.disabled = false;
             errorBox.style.display = 'none';
@@ -87,10 +75,7 @@
         errorBox.style.display = 'none';
         imgRes.src = ""; 
 
-        // Controlador para evitar que el navegador corte la conexión antes de tiempo
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos de espera
-
+        // Intentamos la petición con un tiempo de espera infinito (Keep-alive)
         try {
             const response = await fetch(API_URL, {
                 headers: { 
@@ -99,35 +84,28 @@
                 },
                 method: "POST",
                 body: fileInput.files[0],
-                signal: controller.signal
+                // Forzamos al navegador a mantener la conexión activa
+                keepalive: true
             });
 
-            clearTimeout(timeoutId);
-
             if (!response.ok) {
-                const err = await response.json();
-                if (err.error && err.error.includes("loading")) {
-                    throw new Error("La IA se está preparando (servidor frío). Espera 20 segundos y vuelve a pulsar el botón.");
+                const data = await response.json();
+                if (data.error && data.error.includes("loading")) {
+                    throw new Error("La IA se está despertando. Reintenta en 15 segundos.");
                 }
-                throw new Error(err.error || "El servidor está saturado. Intenta de nuevo.");
+                throw new Error(data.error || "Error en el servidor de IA.");
             }
 
             const blob = await response.blob();
-            if (blob.size > 0 && blob.type.startsWith('image/')) {
-                imgRes.src = URL.createObjectURL(blob);
-            } else {
-                throw new Error("Error en la respuesta del servidor. Intenta otra vez.");
-            }
+            imgRes.src = URL.createObjectURL(blob);
 
         } catch (err) {
-            if (err.name === 'AbortError') {
-                errorBox.innerText = "Error: El servidor tardó demasiado. Reintenta ahora, ya debería estar listo.";
-            } else {
-                errorBox.innerText = err.message === "Failed to fetch" 
-                    ? "Error de Red: Pulsa el botón otra vez para reintentar." 
-                    : err.message;
-            }
             errorBox.style.display = 'block';
+            if (err.message === "Failed to fetch") {
+                errorBox.innerText = "Error de red: La conexión se cortó. Pulsa el botón otra vez, el servidor ya debería estar listo.";
+            } else {
+                errorBox.innerText = err.message;
+            }
         } finally {
             btnAi.disabled = false;
             loader.style.display = 'none';
@@ -135,10 +113,9 @@
     };
 
     document.getElementById('btnDown').onclick = () => {
-        if (!imgRes.src) return;
         const a = document.createElement('a');
         a.href = imgRes.src;
-        a.download = "restaurada_hd.png";
+        a.download = "restaurada.png";
         a.click();
     };
 </script>
