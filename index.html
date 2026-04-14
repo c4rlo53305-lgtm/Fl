@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Face Restorer HD - Final Fix</title>
+    <title>AI Face Restorer - Direct Fix</title>
     <style>
         :root { --accent: #00f2ff; --bg: #0d1117; --card: #161b22; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -23,33 +23,34 @@
 <div class="container">
     <header>
         <h1>AI Face Restorer</h1>
-        <p>Tencent ARC / GFPGAN</p>
+        <p>Conexión Directa Hugging Face</p>
     </header>
 
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-        <p id="statusText">Toca para cargar la foto</p>
+        <p id="statusText">Toca para subir la captura</p>
         <input type="file" id="fileInput" accept="image/*" style="display:none">
     </div>
 
     <button id="btnAi" class="btn-ai" disabled>RECONSTRUIR CARA</button>
     
-    <div id="loader">⚡ Procesando... Por favor, mantén la pantalla encendida.</div>
+    <div id="loader">⚡ Procesando... Espera un momento.</div>
     <div id="errorBox"></div>
 
     <div id="results" class="results" style="display:none;">
         <div class="card">
-            <h3>Original</h3>
+            <h3>Captura Original</h3>
             <img id="imgOri">
         </div>
         <div class="card">
-            <h3>Resultado IA</h3>
+            <h3>Resultado HD</h3>
             <img id="imgRes">
-            <button id="btnDown" style="margin-top:15px; background: #22c55e; border:none; color:white; padding:15px; border-radius:10px; cursor:pointer; font-weight:bold; width: 100%;">DESCARGAR HD</button>
+            <button id="btnDown" style="margin-top:15px; background: #22c55e; border:none; color:white; padding:15px; border-radius:10px; cursor:pointer; font-weight:bold; width: 100%;">DESCARGAR</button>
         </div>
     </div>
 </div>
 
 <script>
+    // Tu Token y la API oficial
     const HF_TOKEN = "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"; 
     const API_URL = "https://api-inference.huggingface.co/models/tencentarc/GFPGAN";
 
@@ -79,36 +80,31 @@
         imgRes.src = ""; 
 
         try {
-            // Leemos el archivo y lo enviamos directamente como arrayBuffer para máxima compatibilidad
-            const arrayBuffer = await file.arrayBuffer();
-
+            // Leemos el archivo como datos binarios directos
             const response = await fetch(API_URL, {
                 headers: { 
-                    "Authorization": `Bearer ${HF_TOKEN}`
+                    "Authorization": `Bearer ${HF_TOKEN}`,
+                    "Content-Type": "application/octet-stream"
                 },
                 method: "POST",
-                body: arrayBuffer,
+                body: await file.arrayBuffer()
             });
 
             if (!response.ok) {
                 const data = await response.json();
                 if (data.error && data.error.includes("loading")) {
-                    throw new Error("El servidor está arrancando. Reintenta en 15 segundos.");
+                    throw new Error("La IA se está iniciando. Pulsa el botón otra vez en 10 segundos.");
                 }
-                throw new Error(data.error || "Error en el servidor de IA.");
+                throw new Error(data.error || "Error en el servidor.");
             }
 
             const blob = await response.blob();
-            if (blob.type.startsWith("image/")) {
-                imgRes.src = URL.createObjectURL(blob);
-            } else {
-                throw new Error("El servidor no devolvió una imagen válida.");
-            }
+            imgRes.src = URL.createObjectURL(blob);
 
         } catch (err) {
             errorBox.style.display = 'block';
-            errorBox.innerText = err.message === "Failed to fetch" 
-                ? "Error de Red: La conexión es inestable. Intenta pulsar el botón de nuevo sin refrescar." 
+            errorBox.innerText = (err.message === "Failed to fetch") 
+                ? "Error de conexión. Prueba darle al botón de nuevo." 
                 : err.message;
         } finally {
             btnAi.disabled = false;
@@ -119,7 +115,7 @@
     document.getElementById('btnDown').onclick = () => {
         const a = document.createElement('a');
         a.href = imgRes.src;
-        a.download = "foto_hd.png";
+        a.download = "restaurada.png";
         a.click();
     };
 </script>
