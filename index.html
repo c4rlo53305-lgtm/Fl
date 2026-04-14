@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Face Restorer - Conexión Forzada</title>
+    <title>AI Face Restorer - Turbo Fix</title>
     <style>
         :root { --accent: #00f2ff; --bg: #0d1117; --card: #161b22; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: white; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .container { max-width: 600px; width: 100%; text-align: center; }
         .upload-box { background: var(--card); border: 2px dashed var(--accent); padding: 30px; border-radius: 20px; cursor: pointer; margin-bottom: 20px; }
-        .btn-ai { width: 100%; padding: 18px; border: none; border-radius: 12px; background: linear-gradient(90deg, #00f2ff, #0072ff); color: white; font-weight: bold; font-size: 1.2rem; cursor: pointer; }
-        .btn-ai:disabled { background: #4b5563; opacity: 0.7; }
+        .btn-ai { width: 100%; padding: 18px; border: none; border-radius: 12px; background: linear-gradient(90deg, #00f2ff, #0072ff); color: white; font-weight: bold; font-size: 1.2rem; cursor: pointer; box-shadow: 0 4px 15px rgba(0, 242, 255, 0.3); }
+        .btn-ai:disabled { background: #4b5563; opacity: 0.7; pointer-events: none; }
         .results { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 25px; }
         .canvas-card { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid #30363d; }
         img { width: 100%; border-radius: 10px; background: #000; min-height: 200px; object-fit: contain; }
-        #loader { display: none; margin: 20px 0; color: var(--accent); font-weight: bold; }
-        #errorBox { display: none; background: rgba(255, 0, 0, 0.1); color: #ff6b6b; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #ff6b6b; }
+        #loader { display: none; margin: 20px 0; color: var(--accent); font-weight: bold; font-size: 1.1rem; }
+        #errorBox { display: none; background: rgba(255, 0, 0, 0.1); color: #ff6b6b; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #ff6b6b; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -23,7 +23,7 @@
 <div class="container">
     <header>
         <h1>AI Face Restorer</h1>
-        <p>Modo de Conexión Persistente</p>
+        <p>Modo Anti-Error de Red (Tencent ARC)</p>
     </header>
 
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
@@ -33,18 +33,18 @@
 
     <button id="btnAi" class="btn-ai" disabled>RECONSTRUIR CARA</button>
     
-    <div id="loader">⚙️ Procesando en el servidor... Por favor no cierres la página.</div>
+    <div id="loader">⚙️ Trabajando... Esto puede tardar 1 minuto. Por favor, no salgas de esta pestaña.</div>
     <div id="errorBox"></div>
 
     <div id="results" class="results" style="display:none;">
         <div class="canvas-card">
-            <h3>Original</h3>
+            <h3>Original cargada</h3>
             <img id="imgOri">
         </div>
         <div class="canvas-card">
-            <h3>Resultado HD</h3>
+            <h3>Resultado de la IA</h3>
             <img id="imgRes">
-            <button id="btnDown" style="margin-top:15px; background: #22c55e; border:none; color:white; padding:12px 20px; border-radius:8px; cursor:pointer; font-weight:bold; width: 100%;">GUARDAR IMAGEN</button>
+            <button id="btnDown" style="margin-top:15px; background: #22c55e; border:none; color:white; padding:15px; border-radius:10px; cursor:pointer; font-weight:bold; width: 100%; font-size: 1.1rem;">GUARDAR FOTO EN HD</button>
         </div>
     </div>
 </div>
@@ -66,56 +66,72 @@
             document.getElementById('results').style.display = 'grid';
             btnAi.disabled = false;
             errorBox.style.display = 'none';
+            document.getElementById('statusText').innerText = "Imagen lista para procesar";
         }
     };
 
+    async function callAiApi(file) {
+        const response = await fetch(API_URL, {
+            headers: { 
+                "Authorization": `Bearer ${HF_TOKEN}`,
+                "Content-Type": "application/octet-stream"
+            },
+            method: "POST",
+            body: file,
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            if (data.error && data.error.includes("loading")) {
+                throw new Error("WAIT"); // Código especial para reintentar
+            }
+            throw new Error(data.error || "Error en el servidor.");
+        }
+        return await response.blob();
+    }
+
     btnAi.onclick = async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+
         btnAi.disabled = true;
         loader.style.display = 'block';
         errorBox.style.display = 'none';
         imgRes.src = ""; 
 
-        // Intentamos la petición con un tiempo de espera infinito (Keep-alive)
-        try {
-            const response = await fetch(API_URL, {
-                headers: { 
-                    "Authorization": `Bearer ${HF_TOKEN}`,
-                    "Content-Type": "application/octet-stream"
-                },
-                method: "POST",
-                body: fileInput.files[0],
-                // Forzamos al navegador a mantener la conexión activa
-                keepalive: true
-            });
+        let attempts = 0;
+        const maxAttempts = 3;
 
-            if (!response.ok) {
-                const data = await response.json();
-                if (data.error && data.error.includes("loading")) {
-                    throw new Error("La IA se está despertando. Reintenta en 15 segundos.");
+        while (attempts < maxAttempts) {
+            try {
+                const blob = await callAiApi(file);
+                imgRes.src = URL.createObjectURL(blob);
+                loader.style.display = 'none';
+                btnAi.disabled = false;
+                return; // Éxito, salimos de la función
+            } catch (err) {
+                attempts++;
+                if (err.message === "WAIT" || err.message === "Failed to fetch") {
+                    console.log(`Intento ${attempts} fallido, esperando...`);
+                    await new Promise(r => setTimeout(r, 10000)); // Espera 10 seg entre intentos
+                } else {
+                    errorBox.innerText = err.message;
+                    errorBox.style.display = 'block';
+                    break;
                 }
-                throw new Error(data.error || "Error en el servidor de IA.");
             }
-
-            const blob = await response.blob();
-            imgRes.src = URL.createObjectURL(blob);
-
-        } catch (err) {
-            errorBox.style.display = 'block';
-            if (err.message === "Failed to fetch") {
-                errorBox.innerText = "Error de red: La conexión se cortó. Pulsa el botón otra vez, el servidor ya debería estar listo.";
-            } else {
-                errorBox.innerText = err.message;
-            }
-        } finally {
-            btnAi.disabled = false;
-            loader.style.display = 'none';
         }
+
+        errorBox.innerText = "Error persistente: El servidor de IA está muy saturado o tu conexión se cortó. Intenta de nuevo en un momento.";
+        errorBox.style.display = 'block';
+        btnAi.disabled = false;
+        loader.style.display = 'none';
     };
 
     document.getElementById('btnDown').onclick = () => {
         const a = document.createElement('a');
         a.href = imgRes.src;
-        a.download = "restaurada.png";
+        a.download = "cara_restaurada.png";
         a.click();
     };
 </script>
